@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Raspadinha</title>
+  <style>
+    .scratch-wrap{
+      position: relative;
+      width: min(1080px, 95vw);
+      aspect-ratio: 4 / 3;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #ddd;
+      touch-action: none; /* evita scroll enquanto “raspa” */
+    }
+    .scratch-wrap img,
+    .scratch-wrap canvas{
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+      user-select: none;
+      -webkit-user-drag: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="scratch-wrap" id="wrap">
+  <!-- Imagem de baixo (o que será revelado) -->
+  <img src="imagem-baixo.png" alt="Revelado" />
+
+  <!-- Canvas “raspável” por cima -->
+  <canvas id="scratch"></canvas>
+</div>
+
+<script>
+const canvas = document.getElementById('scratch');
+const wrap = document.getElementById('wrap');
+const ctx = canvas.getContext('2d');
+
+const coverImg = new Image();
+coverImg.src = "imagem-cima.png"; // pode ser textura; ou desenhar uma cor sólida
+coverImg.onload = () => resizeAndPaint();
+
+function resizeAndPaint(){
+  // Ajusta o canvas ao tamanho renderizado (melhor nitidez)
+  const dpr = window.devicePixelRatio || 1;
+  const rect = wrap.getBoundingClientRect();
+  canvas.width  = Math.round(rect.width * dpr);
+  canvas.height = Math.round(rect.height * dpr);
+  canvas.style.width  = rect.width + "px";
+  canvas.style.height = rect.height + "px";
+
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); // coordenadas em CSS pixels
+
+  // Pinta a “capa” por cima
+  // Opção A: imagem
+  ctx.drawImage(coverImg, 0, 0, rect.width, rect.height);
+
+  // Opção B (se preferir sem imagem): comente drawImage e use:
+  // ctx.fillStyle = "#bdbdbd";
+  // ctx.fillRect(0,0,rect.width,rect.height);
+}
+
+window.addEventListener('resize', resizeAndPaint);
+
+let scratching = false;
+const radius = 22;
+
+function getPos(e){
+  const rect = canvas.getBoundingClientRect();
+  const isTouch = e.touches && e.touches[0];
+  const x = (isTouch ? e.touches[0].clientX : e.clientX) - rect.left;
+  const y = (isTouch ? e.touches[0].clientY : e.clientY) - rect.top;
+  return {x, y};
+}
+
+function scratchAt(x, y){
+  // “Apaga” do que já foi desenhado no canvas usando destination-out
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.globalCompositeOperation = "source-over";
+}
+
+wrap.addEventListener('pointerdown', (e) => {
+  scratching = true;
+  wrap.setPointerCapture(e.pointerId);
+  const {x,y} = getPos(e);
+  scratchAt(x,y);
+});
+
+wrap.addEventListener('pointermove', (e) => {
+  if(!scratching) return;
+  const {x,y} = getPos(e);
+  scratchAt(x,y);
+});
+
+wrap.addEventListener('pointerup', () => scratching = false);
+wrap.addEventListener('pointercancel', () => scratching = false);
+</script>
+</body>
+</html>
